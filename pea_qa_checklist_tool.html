@@ -1,0 +1,333 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.wrap{padding:1rem 0;max-width:680px}
+.role-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem}
+.role-btn{padding:6px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);font-size:13px;cursor:pointer;transition:all .15s}
+.role-btn.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500}
+.pillar-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:12px}
+.pillar-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.pillar-title{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.pillar-track{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.pts-badge{font-size:12px;padding:3px 10px;border-radius:var(--border-radius-md);white-space:nowrap;flex-shrink:0;margin-left:10px}
+.t1{background:#EEEDFE;color:#3C3489}
+.t2{background:#E1F5EE;color:#085041}
+.checks{list-style:none;display:flex;flex-direction:column;gap:6px}
+.check-item{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--color-text-secondary);line-height:1.5}
+.check-box{width:16px;height:16px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--color-background-primary)}
+.check-box.checked{background:#1D9E75;border-color:#1D9E75}
+.check-box.checked::after{content:'';display:block;width:4px;height:7px;border:1.5px solid #fff;border-top:none;border-left:none;transform:rotate(45deg) translate(-1px,-1px)}
+.check-text.done{color:var(--color-text-tertiary);text-decoration:line-through}
+.score-bar{display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.score-card{flex:1;min-width:120px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem}
+.score-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.score-num{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.score-den{font-size:13px;color:var(--color-text-secondary)}
+.progress-wrap{margin-bottom:1.5rem}
+.progress-bg{height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:#1D9E75;border-radius:3px;transition:width .3s}
+.section-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);letter-spacing:.04em;text-transform:uppercase;margin-bottom:.75rem}
+.note-area{width:100%;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;font-size:13px;color:var(--color-text-primary);background:var(--color-background-primary);resize:vertical;min-height:60px;font-family:var(--font-sans);margin-top:8px}
+.note-area::placeholder{color:var(--color-text-tertiary)}
+.role-desc{font-size:13px;color:var(--color-text-secondary);background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem;margin-bottom:1.25rem;line-height:1.6}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only">QA checklist tool for PEA program roles</h2>
+
+<div class="section-label">Reviewing as</div>
+<div class="role-tabs">
+  <button class="role-btn active" onclick="setRole('qa')">QA Reviewer</button>
+  <button class="role-btn" onclick="setRole('pea')">PEA (self-check)</button>
+  <button class="role-btn" onclick="setRole('da')">DA</button>
+  <button class="role-btn" onclick="setRole('manager')">Manager</button>
+</div>
+
+<div id="role-desc" class="role-desc"></div>
+
+<div class="score-bar">
+  <div class="score-card">
+    <div class="score-label">Checks completed</div>
+    <div class="score-num"><span id="done-count">0</span><span class="score-den"> / <span id="total-count">0</span></span></div>
+  </div>
+  <div class="score-card">
+    <div class="score-label">Max points covered</div>
+    <div class="score-num"><span id="pts-done">0</span><span class="score-den"> / <span id="pts-total">0</span> pts</span></div>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-bg"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+</div>
+
+<div id="pillars"></div>
+
+<div style="margin-top:1rem">
+  <div class="section-label">Overall reviewer notes</div>
+  <textarea class="note-area" placeholder="Add summary observations, flags, or recommendations here…"></textarea>
+  <button style="margin-top:10px;padding:6px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px;cursor:pointer" onclick="sendPrompt('Generate a final QA report based on the pillar scores and notes from my checklist review')">Generate QA report ↗</button>
+</div>
+</div>
+
+<script>
+const roles = {
+  qa: {
+    desc: "You are auditing PEA work independently. Review evidence — recordings, sheets, Space messages — and score each pillar. Write reviewer notes and share the final report with the PEA and manager.",
+    pillars: [
+      {id:'t11',track:'Track 1',name:'Meeting Quality (OBM/WAM/TCM)',pts:24,cls:'t1',checks:[
+        'Cross-check calendar invite vs actual meeting date for all 3 types',
+        'Review WAM slide version history — confirm slides were updated before each session',
+        'Confirm OBM dry run appears on calendar',
+        'Check Google Space recording post timestamp — within 24 hrs of each meeting',
+        'Spot-audit 5 attendance rows vs Apps Script responses'
+      ]},
+      {id:'t12',track:'Track 1',name:'Tracking sheet accuracy',pts:12,cls:'t1',checks:[
+        'Random audit 5 intern rows — check all 4 week columns for blanks',
+        'Check form columns: Peer Eval, Self-Eval, Feedback all marked',
+        'Compare Moderator Panel entries vs tracking sheet — flag mismatches',
+        'Verify Reflective Video is tracked in the Feedback Form column'
+      ]},
+      {id:'t13',track:'Track 1',name:'Communication quality',pts:10,cls:'t1',checks:[
+        'Spot-check 2–3 outgoing email headers — confirm Gmail alias used, not Vempower ID',
+        'Compare Space messages vs approved template library',
+        'Review Space threads for queries older than 48 hrs — flag any unanswered',
+        'Check inactive email timestamp vs flag date — must be within 48 hrs'
+      ]},
+      {id:'t14',track:'Track 1',name:'Sub-team setup & management',pts:14,cls:'t1',checks:[
+        'Check Google Space creation timestamp — must be within 24 hrs of OBM',
+        'Count members in each Space — flag if >8 or <7',
+        'Verify poppy is a member of every sub-team Space',
+        'Confirm DA availability was confirmed before TCM was scheduled',
+        'Check welcome messages used approved templates'
+      ]},
+      {id:'t21',track:'Track 2',name:'Driving weekly deliverable submissions',pts:15,cls:'t2',checks:[
+        'Calculate avg completion rate: Submitted ÷ Enrolled × 100 across Weeks 1–4',
+        'Review WAM slide reminder quality — are reminders clear and motivating?',
+        'Check if follow-up messages were sent in Spaces when rate dipped',
+        'Apply scoring: ≥90%=15 | 80–89%=12 | 70–79%=9 | 60–69%=6 | <60%=0–3'
+      ]},
+      {id:'t22',track:'Track 2',name:'OBM invite & welcome quality',pts:8,cls:'t2',checks:[
+        'Calculate attendance rate: Attended ÷ Registered × 100 — flag if <80%',
+        'Review OBM invite message — was a calendar link included?',
+        'Confirm reminder was sent 24–48 hrs before OBM',
+        'Review recording snippet — assess whether session tone was welcoming'
+      ]},
+      {id:'t23',track:'Track 2',name:'Collecting 360° evaluations & feedback forms',pts:10,cls:'t2',checks:[
+        'Calculate submission rate: Submitted ÷ Eligible × 100 across all 3 form types',
+        'Check if correct form links were shared in Spaces with deadline reminders',
+        'Verify correct form variant used (SLU/GT/RIT/IIT-specific)',
+        'Confirm individual follow-ups sent where needed — wrong link = immediate deduction'
+      ]},
+      {id:'t24',track:'Track 2',name:'Re-engaging inactive interns',pts:4,cls:'t2',checks:[
+        'Count re-engagement emails sent within 48 hrs ÷ total interns flagged',
+        'Review email tone — was it warm and personalised, not generic?',
+        'Check if there was a follow-up after the first re-engagement email'
+      ]},
+      {id:'t25',track:'Track 2',name:'Star intern recognition & appreciation',pts:3,cls:'t2',checks:[
+        'Confirm Star Intern Sheet has ≥1 entry with justification notes',
+        'Verify the intern was acknowledged/appreciated during the cohort',
+        'Confirm they were flagged for potential paid opportunities at Excelerate'
+      ]}
+    ]
+  },
+  pea: {
+    desc: "Use this as a self-check before your QA review. Tick off each task you've completed so you can identify any gaps and fix them proactively.",
+    pillars: [
+      {id:'t11',track:'Track 1',name:'Meeting quality (OBM/WAM/TCM)',pts:24,cls:'t1',checks:[
+        'Scheduled all 3 meeting types on time',
+        'Updated WAM slides with fresh data before each session',
+        'Ran a dry run with the DA before OBM',
+        'Recorded every meeting and shared in Google Spaces within 24 hrs',
+        'Captured attendance via Apps Script for every session'
+      ]},
+      {id:'t12',track:'Track 1',name:'Tracking sheet accuracy',pts:12,cls:'t1',checks:[
+        'Kept tracking sheet blank-free throughout the cohort',
+        'Marked all deliverable columns for each intern each week',
+        'Marked OBM attendance column correctly',
+        'Marked all 3 Week 4 forms: Peer Eval, Self-Eval, Feedback',
+        'Cross-checked with Moderator Panel before cohort close'
+      ]},
+      {id:'t13',track:'Track 1',name:'Communication quality',pts:10,cls:'t1',checks:[
+        'Used Gmail alias (not Vempower ID) for all external emails',
+        'Used approved templates from the Talent Discovery Encyclopedia',
+        'Responded to all intern queries within 48 hrs',
+        'Sent inactive emails within 48 hrs of each flag'
+      ]},
+      {id:'t14',track:'Track 1',name:'Sub-team setup & management',pts:14,cls:'t1',checks:[
+        'Created sub-teams within 24 hrs of OBM (7–8 interns each)',
+        'Added poppy to every Google Space',
+        'Confirmed DA availability before scheduling TCM',
+        'Posted welcome messages using approved templates'
+      ]},
+      {id:'t21',track:'Track 2',name:'Driving weekly deliverable submissions',pts:15,cls:'t2',checks:[
+        'Included clear reminders in WAM slides each week',
+        'Posted timely reminder messages in Google Spaces',
+        'Sent follow-up messages when completion rates were low',
+        'Monitored submission rates across all 4 weeks'
+      ]},
+      {id:'t22',track:'Track 2',name:'OBM invite & welcome quality',pts:8,cls:'t2',checks:[
+        'Sent OBM invite with calendar link well in advance',
+        'Sent a reminder 24–48 hrs before OBM',
+        'Ran a warm, structured OBM session',
+        'Achieved ≥80% attendance among registered interns'
+      ]},
+      {id:'t23',track:'Track 2',name:'Collecting 360° evaluations & feedback forms',pts:10,cls:'t2',checks:[
+        'Shared correct form links in Google Spaces in Week 4',
+        'Sent deadline reminders for all 3 forms',
+        'Followed up individually with interns who hadn\'t submitted',
+        'Used the correct form variant for my institution (SLU/GT/RIT/IIT)'
+      ]},
+      {id:'t24',track:'Track 2',name:'Re-engaging inactive interns',pts:4,cls:'t2',checks:[
+        'Sent re-engagement email within 48 hrs of each inactivity flag',
+        'Made the email warm and personalised, not generic',
+        'Followed up again if no response to first email'
+      ]},
+      {id:'t25',track:'Track 2',name:'Star intern recognition & appreciation',pts:3,cls:'t2',checks:[
+        'Identified ≥1 star intern across the 4-week cohort',
+        'Documented them in Star Intern Sheet with specific justification notes',
+        'Acknowledged them warmly during the cohort'
+      ]}
+    ]
+  },
+  da: {
+    desc: "As a DA, QA checks two things about your involvement: that you confirmed availability before TCM scheduling, and that you are present in the correct sub-team Spaces. Use this to verify your coordination with the PEA is QA-ready.",
+    pillars: [
+      {id:'t14',track:'Track 1',name:'Sub-team setup & management (DA coordination)',pts:14,cls:'t1',checks:[
+        'Confirmed availability to PEA before TCM was scheduled',
+        'Verified you are a member of all relevant sub-team Spaces',
+        'Confirmed poppy is also in all Spaces'
+      ]},
+      {id:'t21',track:'Track 2',name:'TCM delivery — deliverable guidance',pts:15,cls:'t2',checks:[
+        'Guided sub-team interns on weekly deliverable expectations during TCM',
+        'Flagged any participation concerns to PEA promptly',
+        'Completed manager evaluation form in Week 4'
+      ]}
+    ]
+  },
+  manager: {
+    desc: "Use this view to spot-check PEA performance across both tracks. Each pillar corresponds to a scored area in the QA matrix — use it to prepare for coaching conversations or final score reviews.",
+    pillars: [
+      {id:'t11',track:'Track 1',name:'Meeting quality (OBM/WAM/TCM)',pts:24,cls:'t1',checks:[
+        'Meetings scheduled and run on time across all 3 types?',
+        'Recordings shared in Google Spaces within 24 hrs?',
+        'Attendance captured consistently via Apps Script?'
+      ]},
+      {id:'t12',track:'Track 1',name:'Tracking sheet accuracy',pts:12,cls:'t1',checks:[
+        'Tracking sheet blank-free with all 4 week columns filled?',
+        'All 3 Week 4 forms marked correctly?',
+        'Cross-checked against Moderator Panel?'
+      ]},
+      {id:'t13',track:'Track 1',name:'Communication quality',pts:10,cls:'t1',checks:[
+        'Gmail alias used for all external emails?',
+        'All responses sent within 48 hrs?',
+        'Approved templates used consistently?'
+      ]},
+      {id:'t14',track:'Track 1',name:'Sub-team setup',pts:14,cls:'t1',checks:[
+        'Sub-teams created within 24 hrs of OBM with correct size (7–8)?',
+        'poppy added to all Spaces?',
+        'DA availability confirmed before TCM scheduling?'
+      ]},
+      {id:'t21',track:'Track 2',name:'Deliverable submission rates',pts:15,cls:'t2',checks:[
+        'Average completion rate ≥75% across Weeks 1–4?',
+        'Follow-up reminders sent when rates dipped?'
+      ]},
+      {id:'t22',track:'Track 2',name:'OBM attendance & quality',pts:8,cls:'t2',checks:[
+        'OBM attendance ≥80% of registered interns?',
+        'Session tone assessed as welcoming?'
+      ]},
+      {id:'t23',track:'Track 2',name:'360° form collection',pts:10,cls:'t2',checks:[
+        'All 3 forms collected from ≥85% of eligible interns?',
+        'Correct form variants used for each institution?'
+      ]},
+      {id:'t24',track:'Track 2',name:'Inactive intern re-engagement',pts:4,cls:'t2',checks:[
+        'Re-engagement emails sent within 48 hrs for all flagged interns?',
+        'Tone warm and personalised?'
+      ]},
+      {id:'t25',track:'Track 2',name:'Star intern recognition',pts:3,cls:'t2',checks:[
+        '≥1 star intern documented with justification notes?',
+        'Intern flagged for paid opportunity consideration?'
+      ]}
+    ]
+  }
+};
+
+let currentRole = 'qa';
+let checked = {};
+let notes = {};
+
+function setRole(r){
+  currentRole = r;
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(r==='qa'?'qa':r==='pea'?'pea':r==='da'?'da':'manager')));
+  render();
+}
+
+function toggle(id, i){
+  const key = id+'_'+i;
+  checked[key] = !checked[key];
+  updateScores();
+  const box = document.getElementById('box_'+key);
+  const txt = document.getElementById('txt_'+key);
+  if(box) box.classList.toggle('checked', checked[key]);
+  if(txt) txt.classList.toggle('done', checked[key]);
+}
+
+function updateScores(){
+  const data = roles[currentRole];
+  let totalChecks = 0, doneChecks = 0, totalPts = 0, donePts = 0;
+  data.pillars.forEach(p=>{
+    totalChecks += p.checks.length;
+    totalPts += p.pts;
+    const allDone = p.checks.every((_,i)=>checked[p.id+'_'+i]);
+    p.checks.forEach((_,i)=>{ if(checked[p.id+'_'+i]) doneChecks++; });
+    if(allDone) donePts += p.pts;
+    else {
+      const frac = p.checks.filter((_,i)=>checked[p.id+'_'+i]).length / p.checks.length;
+      donePts += Math.round(p.pts * frac);
+    }
+  });
+  document.getElementById('done-count').textContent = doneChecks;
+  document.getElementById('total-count').textContent = totalChecks;
+  document.getElementById('pts-done').textContent = donePts;
+  document.getElementById('pts-total').textContent = totalPts;
+  const pct = totalChecks ? Math.round(doneChecks/totalChecks*100) : 0;
+  document.getElementById('prog').style.width = pct+'%';
+}
+
+function render(){
+  const data = roles[currentRole];
+  document.getElementById('role-desc').textContent = data.desc;
+  const container = document.getElementById('pillars');
+  container.innerHTML = '';
+  let totalPts = 0;
+  data.pillars.forEach(p=>{
+    totalPts += p.pts;
+    const card = document.createElement('div');
+    card.className = 'pillar-card';
+    const checksHTML = p.checks.map((c,i)=>{
+      const key = p.id+'_'+i;
+      const isDone = !!checked[key];
+      return `<li class="check-item">
+        <div class="check-box${isDone?' checked':''}" id="box_${key}" onclick="toggle('${p.id}',${i})" role="checkbox" aria-checked="${isDone}" tabindex="0"></div>
+        <span class="check-text${isDone?' done':''}" id="txt_${key}">${c}</span>
+      </li>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="pillar-header">
+        <div>
+          <div class="pillar-title">${p.name}</div>
+          <div class="pillar-track">${p.track}</div>
+        </div>
+        <span class="pts-badge ${p.cls}">Max ${p.pts} pts</span>
+      </div>
+      <ul class="checks">${checksHTML}</ul>
+      <textarea class="note-area" placeholder="Notes for this pillar…" style="margin-top:10px" oninput="notes['${p.id}']=this.value">${notes[p.id]||''}</textarea>
+    `;
+    container.appendChild(card);
+  });
+  updateScores();
+  document.getElementById('pts-total').textContent = totalPts;
+}
+
+render();
+</script>
